@@ -70,8 +70,8 @@ export async function platformRequest<T = any>(
   if (!response.ok) {
     const errorMessage = data?.error || data?.message || `HTTP ${response.status}: ${response.statusText}`;
 
-    // Auto-clear invalid/expired tokens on 401 unauthorized
-    if (response.status === 401) {
+    // Auto-clear invalid/expired tokens on 401 unauthorized (skip redirect for login attempts)
+    if (response.status === 401 && !endpoint.includes("/auth/login")) {
       localStorage.removeItem("platform_auth_token");
       localStorage.removeItem("platform_user_profile");
       if (window.location.pathname !== "/login") {

@@ -139,7 +139,7 @@ export const LoginPage: React.FC = () => {
           </form>
 
           {/* Quick Demo Staff Logins */}
-          <div className="mt-6 pt-5 border-t border-slate-800">
+          {/* <div className="mt-6 pt-5 border-t border-slate-800">
             <div className="flex items-center space-x-1.5 mb-2.5 text-[11px] text-slate-400">
               <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
               <span>Quick-Fill Seeded Staff Accounts:</span>
@@ -174,7 +174,7 @@ export const LoginPage: React.FC = () => {
                 Support Agent
               </button>
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* Privacy Shield Notice */}
