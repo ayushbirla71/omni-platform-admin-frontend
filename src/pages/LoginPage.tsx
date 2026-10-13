@@ -14,7 +14,7 @@ export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = (location.state as any)?.from?.pathname || "/tenants";
+  const from = (location.state as any)?.from?.pathname || "/";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

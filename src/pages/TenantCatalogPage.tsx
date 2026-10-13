@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { platformApi } from "../api/platform-api";
-import { TenantMetadata, PlatformTenantOverview } from "../types/platform";
+import { TenantMetadata, PlatformTenantOverview, PlatformPlanItem } from "../types/platform";
 import { usePlatformAuth } from "../context/PlatformAuthContext";
 import { PrivacyShieldBanner } from "../components/common/PrivacyShieldBanner";
 import {
@@ -34,14 +34,30 @@ export const TenantCatalogPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   // Edit Modal State (Super Admin)
+  // Uses the same lifecycle & entitlements flow as the Subscriptions page.
+  const [plans, setPlans] = useState<PlatformPlanItem[]>([]);
   const [editingTenant, setEditingTenant] = useState<TenantMetadata | null>(null);
-  const [editPlan, setEditPlan] = useState("");
-  const [editStatus, setEditStatus] = useState<"active" | "suspended" | "trial" | "cancelled">("active");
-  const [editQuota, setEditQuota] = useState(10000);
-  const [editChannels, setEditChannels] = useState(5);
-  const [editUsers, setEditUsers] = useState(10);
+  const [editPlanId, setEditPlanId] = useState("");
+  const [editStatus, setEditStatus] = useState("active");
+  const [editExpiresAt, setEditExpiresAt] = useState("");
+  const [editMaxChannels, setEditMaxChannels] = useState(5);
+  const [editMaxContacts, setEditMaxContacts] = useState(5000);
+  const [editMaxMessages, setEditMaxMessages] = useState(25000);
+  const [editMaxAiQueries, setEditMaxAiQueries] = useState(1000);
+  const [isLoadingSub, setIsLoadingSub] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const planName = (planId: string) => plans.find((p) => p.id === planId)?.name ?? planId;
+
+  const fetchPlans = async () => {
+    try {
+      const data = await platformApi.plans.list({ includeInactive: true });
+      setPlans(data);
+    } catch (err) {
+      console.error("Failed to load plans:", err);
+    }
+  };
 
   const fetchOverview = async () => {
     try {
@@ -74,6 +90,7 @@ export const TenantCatalogPage: React.FC = () => {
 
   useEffect(() => {
     fetchOverview();
+    fetchPlans();
   }, []);
 
   useEffect(() => {
@@ -86,14 +103,36 @@ export const TenantCatalogPage: React.FC = () => {
     fetchTenants();
   };
 
-  const openEditModal = (t: TenantMetadata) => {
+  const openEditModal = async (t: TenantMetadata) => {
     setEditingTenant(t);
-    setEditPlan(t.plan || "starter");
-    setEditStatus((t.planStatus as any) || "active");
-    setEditQuota(t.messageQuotaMonthly ?? t.maxMonthlyMessages ?? 25000);
-    setEditChannels(t.maxChannels ?? 5);
-    setEditUsers(t.maxUsers ?? 10);
     setSaveError(null);
+    // Seed from tenant metadata, then overwrite with the authoritative subscription record.
+    setEditPlanId(t.plan || "starter");
+    setEditStatus(t.planStatus || "active");
+    setEditExpiresAt(t.planExpiresAt ? t.planExpiresAt.slice(0, 10) : "");
+    setEditMaxChannels(t.maxChannels ?? 5);
+    setEditMaxContacts(t.maxContacts ?? 5000);
+    setEditMaxMessages(t.maxMonthlyMessages ?? t.messageQuotaMonthly ?? 25000);
+    setEditMaxAiQueries(t.maxMonthlyAiQueries ?? 1000);
+
+    setIsLoadingSub(true);
+    try {
+      const res = await platformApi.subscriptions.list({ search: t.id, limit: 10 });
+      const sub = res.subscriptions.find((s) => s.tenantId === t.id);
+      if (sub) {
+        setEditPlanId(sub.planId || "starter");
+        setEditStatus(sub.planStatus || "active");
+        setEditExpiresAt(sub.planExpiresAt ? sub.planExpiresAt.slice(0, 10) : "");
+        setEditMaxChannels(sub.maxChannels);
+        setEditMaxContacts(sub.maxContacts);
+        setEditMaxMessages(sub.maxMonthlyMessages);
+        setEditMaxAiQueries(sub.maxMonthlyAiQueries);
+      }
+    } catch (err) {
+      console.error("Failed to load workspace subscription:", err);
+    } finally {
+      setIsLoadingSub(false);
+    }
   };
 
   const handleSaveGovernance = async (e: React.FormEvent) => {
@@ -103,12 +142,14 @@ export const TenantCatalogPage: React.FC = () => {
     setSaveError(null);
 
     try {
-      await platformApi.tenants.updateGovernance(editingTenant.id, {
-        plan: editPlan,
+      await platformApi.subscriptions.updateLifecycle(editingTenant.id, {
+        planId: editPlanId,
         planStatus: editStatus,
-        messageQuotaMonthly: Number(editQuota),
-        maxChannels: Number(editChannels),
-        maxUsers: Number(editUsers),
+        planExpiresAt: editExpiresAt ? new Date(editExpiresAt).toISOString() : null,
+        maxChannels: Number(editMaxChannels),
+        maxContacts: Number(editMaxContacts),
+        maxMonthlyMessages: Number(editMaxMessages),
+        maxMonthlyAiQueries: Number(editMaxAiQueries),
       });
       setEditingTenant(null);
       await Promise.all([fetchOverview(), fetchTenants()]);
@@ -232,10 +273,11 @@ export const TenantCatalogPage: React.FC = () => {
             className="bg-slate-950 border border-slate-800 text-xs text-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           >
             <option value="">All Plans</option>
-            <option value="free">Free</option>
-            <option value="starter">Starter</option>
-            <option value="growth">Growth</option>
-            <option value="enterprise">Enterprise</option>
+            {plans.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
           </select>
 
           <select
@@ -302,7 +344,7 @@ export const TenantCatalogPage: React.FC = () => {
                     <td className="px-4 py-3.5">
                       <div className="space-y-1">
                         <span className="inline-block uppercase font-mono font-bold text-[10px] text-indigo-300 bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-500/30">
-                          {t.plan}
+                          {planName(t.plan)}
                         </span>
                         <div>{getStatusBadge(t.planStatus)}</div>
                       </div>
@@ -407,7 +449,7 @@ export const TenantCatalogPage: React.FC = () => {
                 <Sliders className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">Override Tenant Governance</h3>
+                <h3 className="text-base font-bold text-white">Override Entitlements & Lifecycle</h3>
                 <p className="text-xs text-slate-400 font-mono">Workspace: {editingTenant.name}</p>
               </div>
             </div>
@@ -421,69 +463,73 @@ export const TenantCatalogPage: React.FC = () => {
             <form onSubmit={handleSaveGovernance} className="space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 mb-1 font-medium">Subscription Plan</label>
+                  <label className="block text-slate-300 mb-1 font-medium">Plan Tier</label>
                   <select
-                    value={editPlan}
-                    onChange={(e) => setEditPlan(e.target.value)}
+                    value={editPlanId}
+                    onChange={(e) => setEditPlanId(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   >
-                    <option value="free">Free</option>
-                    <option value="starter">Starter</option>
-                    <option value="growth">Growth</option>
-                    <option value="enterprise">Enterprise</option>
+                    {!plans.some((p) => p.id === editPlanId) && editPlanId && (
+                      <option value={editPlanId}>{editPlanId}</option>
+                    )}
+                    {plans.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 mb-1 font-medium">Workspace Lifecycle Status</label>
+                  <label className="block text-slate-300 mb-1 font-medium">Status</label>
                   <select
                     value={editStatus}
-                    onChange={(e) => setEditStatus(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   >
-                    <option value="active">active</option>
-                    <option value="trial">trial</option>
-                    <option value="suspended">suspended</option>
-                    <option value="cancelled">cancelled</option>
+                    <option value="active">Active</option>
+                    <option value="trial">Trial</option>
+                    <option value="suspended">Suspended</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="expired">Expired</option>
                   </select>
                 </div>
               </div>
 
               <div>
                 <label className="block text-slate-300 mb-1 font-medium">
-                  Monthly Message Quota (Messages / Period)
+                  Expiration Date (Leave blank for lifetime)
                 </label>
                 <input
-                  type="number"
-                  min="0"
-                  step="1000"
-                  value={editQuota}
-                  onChange={(e) => setEditQuota(Number(e.target.value))}
+                  type="date"
+                  value={editExpiresAt}
+                  onChange={(e) => setEditExpiresAt(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-300 mb-1 font-medium">Max Channels Limit</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={editChannels}
-                    onChange={(e) => setEditChannels(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-300 mb-1 font-medium">Max Seats Limit</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={editUsers}
-                    onChange={(e) => setEditUsers(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
+              <div className="space-y-2 pt-2 border-t border-slate-800/80">
+                <span className="text-xs font-semibold text-slate-200 block">
+                  Quota Limits Overrides (-1 for unlimited)
+                </span>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: "Max Channels", value: editMaxChannels, set: setEditMaxChannels },
+                    { label: "Max Contacts", value: editMaxContacts, set: setEditMaxContacts },
+                    { label: "Messages / mo", value: editMaxMessages, set: setEditMaxMessages },
+                    { label: "AI Queries / mo", value: editMaxAiQueries, set: setEditMaxAiQueries },
+                  ].map((f) => (
+                    <div key={f.label}>
+                      <label className="text-[11px] text-slate-400 block mb-1">{f.label}</label>
+                      <input
+                        type="number"
+                        required
+                        value={f.value}
+                        onChange={(e) => f.set(parseInt(e.target.value) || 0)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -501,10 +547,10 @@ export const TenantCatalogPage: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSaving}
+                  disabled={isSaving || isLoadingSub}
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-semibold disabled:opacity-50 transition"
                 >
-                  {isSaving ? "Applying Override..." : "Save Governance Settings"}
+                  {isSaving ? "Saving..." : "Save Entitlements"}
                 </button>
               </div>
             </form>
