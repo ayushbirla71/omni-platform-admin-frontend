@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { platformApi } from "../api/platform-api";
 import { PlatformStaffUser, PlatformRole } from "../types/platform";
 import { usePlatformAuth } from "../context/PlatformAuthContext";
+import { PasswordInput } from "../components/common/PasswordInput";
 import {
   Users,
   UserPlus,
@@ -327,8 +328,7 @@ export const StaffManagementPage: React.FC = () => {
 
               <div>
                 <label className="block text-slate-300 font-medium mb-1">Temporary Staff Password</label>
-                <input
-                  type="password"
+                <PasswordInput
                   required
                   value={formPassword}
                   onChange={(e) => setFormPassword(e.target.value)}

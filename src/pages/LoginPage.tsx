@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { usePlatformAuth } from "../context/PlatformAuthContext";
+import { PasswordInput } from "../components/common/PasswordInput";
 import { Shield, Lock, Mail, KeyRound, AlertCircle, Sparkles } from "lucide-react";
 
 export const LoginPage: React.FC = () => {
@@ -93,19 +94,14 @@ export const LoginPage: React.FC = () => {
               <label className="block text-xs font-medium text-slate-300 mb-1.5">
                 Staff Password
               </label>
-              <div className="relative rounded-lg shadow-sm">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                  <Lock className="w-4 h-4" />
-                </div>
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
-                  className="block w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-mono"
-                />
-              </div>
+              <PasswordInput
+                leftIcon={<Lock className="w-4 h-4" />}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••••••"
+                className="block w-full pl-9 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-mono"
+              />
             </div>
 
             <div>
