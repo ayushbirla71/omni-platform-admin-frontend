@@ -26,3 +26,18 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #475569;
 }
+
+@media print {
+  aside,
+  header {
+    display: none !important;
+  }
+  body,
+  main {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  article * {
+    color: #111 !important;
+  }
+}

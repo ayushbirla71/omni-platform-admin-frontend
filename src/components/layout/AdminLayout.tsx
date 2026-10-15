@@ -16,6 +16,7 @@ import {
   CreditCard,
   Receipt,
   LifeBuoy,
+  BookMarked,
 } from "lucide-react";
 
 export const AdminLayout: React.FC = () => {
@@ -129,6 +130,13 @@ export const AdminLayout: React.FC = () => {
       path: "/audit-logs",
       icon: ScrollText,
       visible: isSuperAdmin || isPlatformDev || isSupportAgent,
+    },
+    {
+      name: "User Manual",
+      path: "/documentation/user-manual",
+      icon: BookMarked,
+      visible: true,
+      badge: "Docs",
     },
   ];
 

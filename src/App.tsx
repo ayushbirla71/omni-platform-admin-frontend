@@ -14,6 +14,7 @@ import { PlansManagementPage } from "./pages/PlansManagementPage";
 import { SubscriptionsPage } from "./pages/SubscriptionsPage";
 import { SubscriptionPaymentsPage } from "./pages/SubscriptionPaymentsPage";
 import { SupportTicketsPage } from "./pages/SupportTicketsPage";
+import { UserManualPage } from "./pages/UserManualPage";
 
 // Smart home router based on user role
 const RootRedirect: React.FC = () => {
@@ -145,6 +146,10 @@ export const App: React.FC = () => {
                   </ProtectedRoute>
                 }
               />
+
+              {/* Staff User Manual (every authenticated staff role) */}
+              <Route path="/documentation/user-manual" element={<UserManualPage />} />
+              <Route path="/documentation/user-manual/:chapter" element={<UserManualPage />} />
 
               {/* Platform Audit Trail (Super Admin, Dev, Support) */}
               <Route
